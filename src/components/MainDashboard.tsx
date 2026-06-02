@@ -6,6 +6,7 @@ import { CandlestickData, Time } from 'lightweight-charts';
 
 const INVESTED_AMOUNT = 85000;
 const INITIAL_CURRENT = 124530.50;
+const TARGET_AMOUNT = 150000;
 
 export function MainDashboard() {
   const [data, setData] = useState<CandlestickData<Time>[]>([]);
@@ -15,7 +16,7 @@ export function MainDashboard() {
   useEffect(() => {
     // 1. Generate historical OHLC data (120 bars of 1 minute)
     const history: CandlestickData<Time>[] = [];
-    let val = INITIAL_CURRENT - (Math.random() * 2000);
+    let val = INITIAL_CURRENT - (Math.random() * 2000) - 2000; // Start lower
     
     // Start of current minute
     const currentRealMinute = Math.floor(Date.now() / 1000 / 60) * 60;
@@ -23,10 +24,14 @@ export function MainDashboard() {
     for (let i = 120; i >= 0; i--) {
       const time = (currentRealMinute - i * 60) as Time;
       const open = val;
-      const change = (Math.random() - 0.45) * 80;
+      
+      const distance = INITIAL_CURRENT - val;
+      const trend = i > 0 ? (distance / i) : 0; // Natural progression to INITIAL_CURRENT
+      const change = trend + (Math.random() - 0.5) * 120;
+      
       const close = i === 0 ? INITIAL_CURRENT : val + change;
-      const high = Math.max(open, close) + Math.abs(Math.random() * 30);
-      const low = Math.min(open, close) - Math.abs(Math.random() * 30);
+      const high = Math.max(open, close) + Math.abs(Math.random() * 40);
+      const low = Math.min(open, close) - Math.abs(Math.random() * 40);
 
       history.push({ time, open, high, low, close });
       val = close;
@@ -42,7 +47,12 @@ export function MainDashboard() {
         
         // Use the current real minute to determine if we need a new candle
         const nowMinute = Math.floor(Date.now() / 1000 / 60) * 60;
-        const change = (Math.random() - 0.42) * 50; // Random tick change
+        
+        // Calculate realistic volatility leaning towards 1.5L
+        const distanceToTarget = TARGET_AMOUNT - lastCandle.close;
+        const trend = distanceToTarget > 0 ? (Math.random() * 15) : -(Math.random() * 15);
+        const volatility = 40; // Price fluctuates around the trend
+        const change = trend + (Math.random() - 0.5) * volatility;
         
         const newCandles = [...prev];
         
@@ -73,7 +83,7 @@ export function MainDashboard() {
 
         return newCandles;
       });
-    }, 1500);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -91,7 +101,7 @@ export function MainDashboard() {
               <Activity className="w-6 h-6 text-primary" />
            </div>
            <div>
-              <h1 className="text-sm font-mono tracking-widest text-muted uppercase">Live Portfolio Manager</h1>
+              <h1 className="text-sm font-mono tracking-widest text-muted uppercase">LarkX Terminal</h1>
               <div className="flex items-center gap-2 mt-1.5">
                  <span className="flex h-2.5 w-2.5 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-up opacity-75"></span>
@@ -102,15 +112,20 @@ export function MainDashboard() {
            </div>
         </div>
 
-        <div className="flex flex-wrap md:flex-nowrap items-center gap-8 md:gap-16">
+        <div className="flex flex-wrap md:flex-nowrap items-center gap-8 xl:gap-16">
+           <div>
+             <p className="text-[10px] sm:text-xs font-mono text-muted uppercase tracking-widest mb-1.5">Sat. Target</p>
+             <p className="text-xl xl:text-2xl font-mono text-primary">{formatCurrency(TARGET_AMOUNT)}</p>
+           </div>
+
            <div>
              <p className="text-[10px] sm:text-xs font-mono text-muted uppercase tracking-widest mb-1.5">Total Invested</p>
-             <p className="text-xl md:text-2xl font-mono text-primary">{formatCurrency(INVESTED_AMOUNT)}</p>
+             <p className="text-xl xl:text-2xl font-mono text-primary">{formatCurrency(INVESTED_AMOUNT)}</p>
            </div>
            
            <div>
              <p className="text-[10px] sm:text-xs font-mono text-muted uppercase tracking-widest mb-1.5">Current Balance</p>
-             <p className="text-2xl md:text-4xl font-mono tracking-tighter transition-colors font-medium" style={{ color: isProfit ? 'var(--color-up)' : 'var(--color-down)' }}>
+             <p className="text-2xl xl:text-4xl font-mono tracking-tighter transition-colors font-medium" style={{ color: isProfit ? 'var(--color-up)' : 'var(--color-down)' }}>
                {formatCurrency(currentValue)}
              </p>
            </div>
@@ -118,7 +133,7 @@ export function MainDashboard() {
            <div className="text-left md:text-right">
              <p className="text-[10px] sm:text-xs font-mono text-muted uppercase tracking-widest mb-1.5">Session P/L</p>
              <div className="flex items-center md:justify-end gap-3">
-                 <p className={`text-2xl md:text-3xl font-mono tracking-tighter font-medium ${isProfit ? 'text-up' : 'text-down'}`}>
+                 <p className={`text-2xl xl:text-3xl font-mono tracking-tighter font-medium ${isProfit ? 'text-up' : 'text-down'}`}>
                    {isProfit ? '+' : '-'}{formatCurrency(Math.abs(profit))}
                  </p>
                  <span className={`text-xs md:text-sm font-mono flex items-center bg-surface-hover px-2 py-1.5 rounded-md border border-border ${isProfit ? 'text-up' : 'text-down'}`}>
@@ -136,10 +151,10 @@ export function MainDashboard() {
          
          <div className="absolute bottom-8 left-8 pointer-events-none z-0">
             <h2 className="text-6xl md:text-[120px] leading-none font-mono tracking-tighter opacity-5 uppercase font-bold select-none text-muted">
-               TRD-X
+               LARK-X
             </h2>
             <p className="text-sm md:text-xl font-mono tracking-widest opacity-10 uppercase ml-2 mt-4 text-muted">
-               Real-Time Market Data
+               Realistic Target Protocol Active
             </p>
          </div>
       </main>
