@@ -4,9 +4,23 @@ import { ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
 import { LiveTradingChart } from './LiveTradingChart';
 import { CandlestickData, Time } from 'lightweight-charts';
 
-const INVESTED_AMOUNT = 85000;
-const INITIAL_CURRENT = 124530.50;
-const TARGET_AMOUNT = 150000;
+const INVESTED_AMOUNT = 200000;
+const FINAL_TARGET = 318364;
+
+// June 7, 2026 to June 16, 2026 progression
+const START_TIME = new Date('2026-06-07T00:00:00Z').getTime();
+const END_TIME = new Date('2026-06-16T00:00:00Z').getTime();
+
+const getExpectedCurrentValue = () => {
+  const now = Date.now();
+  if (now <= START_TIME) return INVESTED_AMOUNT;
+  if (now >= END_TIME) return FINAL_TARGET;
+  const progress = (now - START_TIME) / (END_TIME - START_TIME);
+  return INVESTED_AMOUNT + (FINAL_TARGET - INVESTED_AMOUNT) * progress;
+};
+
+// Start near expected value
+const INITIAL_CURRENT = getExpectedCurrentValue() + (Math.random() * 2000 - 1000);
 
 export function MainDashboard() {
   const [data, setData] = useState<CandlestickData<Time>[]>([]);
@@ -15,28 +29,33 @@ export function MainDashboard() {
 
   useEffect(() => {
     // 1. Generate historical OHLC data (120 bars of 1 minute)
-    const history: CandlestickData<Time>[] = [];
-    let val = INITIAL_CURRENT - (Math.random() * 2000) - 2000; // Start lower
-    
-    // Start of current minute
+    const expectedInitial = getExpectedCurrentValue();
     const currentRealMinute = Math.floor(Date.now() / 1000 / 60) * 60;
     
-    for (let i = 120; i >= 0; i--) {
-      const time = (currentRealMinute - i * 60) as Time;
-      const open = val;
-      
-      const distance = INITIAL_CURRENT - val;
-      const trend = i > 0 ? (distance / i) : 0; // Natural progression to INITIAL_CURRENT
-      const change = trend + (Math.random() - 0.5) * 120;
-      
-      const close = i === 0 ? INITIAL_CURRENT : val + change;
-      const high = Math.max(open, close) + Math.abs(Math.random() * 40);
-      const low = Math.min(open, close) - Math.abs(Math.random() * 40);
+    // Generate backwards so it ends up exactly near expectedInitial
+    const historyRev: CandlestickData<Time>[] = [];
+    let nextClose = expectedInitial;
 
-      history.push({ time, open, high, low, close });
-      val = close;
+    for (let i = 0; i <= 120; i++) {
+        const time = (currentRealMinute - i * 60) as Time;
+        const volatility = 400 + Math.random() * 1500; // Ultra high volatility
+        
+        const open = nextClose - (Math.random() - 0.5) * volatility;
+        const high = Math.max(open, nextClose) + Math.random() * 800;
+        const low = Math.min(open, nextClose) - Math.random() * 800;
+
+        historyRev.push({
+            time,
+            open,
+            high,
+            low,
+            close: nextClose
+        });
+        
+        nextClose = open;
     }
     
+    const history = historyRev.reverse();
     setData(history);
     
     // 2. Start live simulation tick
@@ -48,10 +67,12 @@ export function MainDashboard() {
         // Use the current real minute to determine if we need a new candle
         const nowMinute = Math.floor(Date.now() / 1000 / 60) * 60;
         
-        // Calculate realistic volatility leaning towards 1.5L
-        const distanceToTarget = TARGET_AMOUNT - lastCandle.close;
-        const trend = distanceToTarget > 0 ? (Math.random() * 15) : -(Math.random() * 15);
-        const volatility = 40; // Price fluctuates around the trend
+        // Calculate realistic high volatility leaning towards expected target over time
+        const expectedNow = getExpectedCurrentValue();
+        const distanceToExpected = expectedNow - lastCandle.close;
+        const trend = distanceToExpected / 30; // Smooth pull towards target over ~30 ticks roughly
+        
+        const volatility = 400 + Math.random() * 1500; // High volatile price fluctuations
         const change = trend + (Math.random() - 0.5) * volatility;
         
         const newCandles = [...prev];
@@ -114,12 +135,7 @@ export function MainDashboard() {
 
         <div className="flex flex-wrap md:flex-nowrap items-center gap-8 xl:gap-16">
            <div>
-             <p className="text-[10px] sm:text-xs font-mono text-muted uppercase tracking-widest mb-1.5">Sat. Target</p>
-             <p className="text-xl xl:text-2xl font-mono text-primary">{formatCurrency(TARGET_AMOUNT)}</p>
-           </div>
-
-           <div>
-             <p className="text-[10px] sm:text-xs font-mono text-muted uppercase tracking-widest mb-1.5">Total Invested</p>
+             <p className="text-[10px] sm:text-xs font-mono text-muted uppercase tracking-widest mb-1.5">Invested (07/06/26)</p>
              <p className="text-xl xl:text-2xl font-mono text-primary">{formatCurrency(INVESTED_AMOUNT)}</p>
            </div>
            
